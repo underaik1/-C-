@@ -41,4 +41,41 @@ public:
         pobeda = false;
         perviyHod = true;
     }
+    // расстановка мин
+    void rasstanovkaMin() {
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> disR(0, RYADI - 1);
+        uniform_int_distribution<> disC(0, KOLONKI - 1);
+
+        int rasstavleno = 0;
+        while (rasstavleno < MIN_V_IGRE) {
+            int r = disR(gen);
+            int c = disC(gen);
+            if (!pole[r][c].estMina) {
+                pole[r][c].estMina = true;
+                rasstavleno++;
+            }
+        }
+    }
+
+    // подсчет мин вокруг
+    void podschetMin() {
+        for (int r = 0; r < RYADI; ++r) {
+            for (int c = 0; c < KOLONKI; ++c) {
+                if (pole[r][c].estMina) continue;
+
+                int count = 0;
+                for (int i = -1; i <= 1; ++i) {
+                    for (int j = -1; j <= 1; ++j) {
+                        if (pole[r + i][c + j].estMina) {
+                            count++;
+                        }
+                    }
+                }
+                pole[r][c].miniRyadom = count;
+            }
+        }
+    }
 };
+
