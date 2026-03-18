@@ -61,21 +61,26 @@ public:
 
     // подсчет мин вокруг
     void podschetMin() {
+        // перебор всех клеток поля
         for (int r = 0; r < RYADI; ++r) {
             for (int c = 0; c < KOLONKI; ++c) {
                 if (pole[r][c].estMina) continue;
-
-                int count = 0;
+                int count = 0; // счетчик для текущей клетки
+                // Проверка соседей
                 for (int i = -1; i <= 1; ++i) {
                     for (int j = -1; j <= 1; ++j) {
-                        if (pole[r + i][c + j].estMina) {
-                            count++;
+                        int nr = r + i;
+                        int nc = c + j;
+                        // проверка границы поля
+                        if (nr >= 0 && nr < RYADI && nc >= 0 && nc < KOLONKI) {
+                            if (pole[nr][nc].estMina) {
+                                count++;
+                            }
                         }
                     }
                 }
-                pole[r][c].miniRyadom = count;
+                pole[r][c].miniRyadom = count; // апись результа
             }
         }
     }
 };
-
