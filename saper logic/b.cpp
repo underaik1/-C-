@@ -1,85 +1,86 @@
-#include <iostream>
 #include <vector>
 #include <random>
 
-using namespace std;
-
-// ссостояния ячеек: скрыта, открыта или под флагом
-enum class Sostoyanie { ZAKRITO, OTKRITO, FLAG };
+//состояния ячейки: скрыта, открыта или под флагом
+enum class CellState { HIDDEN, REVEALED, FLAGGED };
 
 // структура одной клетки поля
-struct Kletka {
-    bool estMina = false;
-    int miniRyadom = 0;
-    Sostoyanie status = Sostoyanie::ZAKRITO;
+struct Cell {
+    bool hasMine = false;
+    int adjacentMines = 0;
+    CellState state = CellState::HIDDEN;
 };
 
-class LogikaSapera {
+class MinesweeperCore {
 protected:
-    // параметры поля 5 на 5, 3 мины
-    inline static constexpr int RYADI = 5;
-    inline static constexpr int KOLONKI = 5;
-    inline static constexpr int MIN_V_IGRE = 3;
+    // параметры поля (потом можно вынести в конструктор)
+    inline static constexpr int ROWS = 5;
+    inline static constexpr int COLS = 5;
+    inline static constexpr int MINES_COUNT = 3;
 
-    int otkritieKletki = 0;
-    bool proigrish = false;
-    bool pobeda = false;
-    bool perviyHod = true;
+    int revealedCellsCount = 0;
+    bool isGameOver = false;
+    bool isGameWon = false;
+    bool isFirstMove = true;
 
-    vector<vector<Kletka>> pole;
+    std::vector<std::vector<Cell>> grid;
 
 public:
-    LogikaSapera() {
+    MinesweeperCore() {
         initField();
     }
 
     // инициализация или сброс поля
     void initField() {
-        pole.assign(RYADI, vector<Kletka>(KOLONKI));
-        otkritieKletki = 0;
-        proigrish = false;
-        pobeda = false;
-        perviyHod = true;
+        grid.assign(ROWS, std::vector<Cell>(COLS));
+        revealedCellsCount = 0;
+        isGameOver = false;
+        isGameWon = false;
+        isFirstMove = true;
     }
-    // расстановка мин
-    void rasstanovkaMin() {
-        random_device rd;
-        mt19937 gen(rd());
-        uniform_int_distribution<> disR(0, RYADI - 1);
-        uniform_int_distribution<> disC(0, KOLONKI - 1);
 
-        int rasstavleno = 0;
-        while (rasstavleno < MIN_V_IGRE) {
+    // расстановка мин
+    void placeMines() {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> disR(0, ROWS - 1);
+        std::uniform_int_distribution<> disC(0, COLS - 1);
+
+        int placedMines = 0;
+        while (placedMines < MINES_COUNT) {
             int r = disR(gen);
             int c = disC(gen);
-            if (!pole[r][c].estMina) {
-                pole[r][c].estMina = true;
-                rasstavleno++;
+            
+            if (!grid[r][c].hasMine) {
+                grid[r][c].hasMine = true;
+                placedMines++;
             }
         }
     }
 
-    // подсчет мин вокруг
-    void podschetMin() {
-        // перебор всех клеток поля
-        for (int r = 0; r < RYADI; ++r) {
-            for (int c = 0; c < KOLONKI; ++c) {
-                if (pole[r][c].estMina) continue;
-                int count = 0; // счетчик для текущей клетки
-                // Проверка соседей
+    //подсчет мин вокруг
+    void calculateAdjacentMines() {
+        for (int r = 0; r < ROWS; ++r) {
+            for (int c = 0; c < COLS; ++c) {
+                if (grid[r][c].hasMine) continue;
+                
+                int count = 0;
+                
+                //проверка соседей (окно 3х3)
                 for (int i = -1; i <= 1; ++i) {
                     for (int j = -1; j <= 1; ++j) {
                         int nr = r + i;
                         int nc = c + j;
-                        // проверка границы поля
-                        if (nr >= 0 && nr < RYADI && nc >= 0 && nc < KOLONKI) {
-                            if (pole[nr][nc].estMina) {
+                        
+                        //проверка границ
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                            if (grid[nr][nc].hasMine) {
                                 count++;
                             }
                         }
                     }
                 }
-                pole[r][c].miniRyadom = count; // апись результа
+                grid[r][c].adjacentMines = count;
             }
         }
     }
