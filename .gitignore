@@ -1,1 +1,5 @@
 saper logic/main.cpp
+build/
+out/
+.vs/
+*.vcxproj.user

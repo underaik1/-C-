@@ -1,0 +1,338 @@
+:root {
+    --bg: #eef3f8;
+    --surface: #ffffff;
+    --surface-soft: #f5f8fc;
+    --border: #d8e0ea;
+    --text: #1f2a37;
+    --muted: #65758b;
+    --blue: #2563eb;
+    --blue-soft: #e6efff;
+    --blue-pressed: #d4e3ff;
+    --cell-line: #c8d5e6;
+    --mine-bg: #e2e8f2;
+    --danger: #b91c1c;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.app-shell {
+    width: min(1100px, 100%);
+    height: min(900px, calc(100vh - 20px));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 10px 28px rgba(31, 42, 55, 0.08);
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 10px;
+}
+
+.top-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 27px;
+    line-height: 1.1;
+    color: #1d4ed8;
+    letter-spacing: 0.01em;
+}
+
+.brand p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.controls {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+}
+
+.control {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 38px;
+}
+
+.mode-select {
+    position: relative;
+    min-width: 150px;
+}
+
+button {
+    font: inherit;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text);
+    border-radius: 10px;
+    height: 38px;
+    padding: 0 12px;
+}
+
+button {
+    cursor: pointer;
+    border-color: #a8c3f3;
+    background: #e5edff;
+    color: #1e3a8a;
+    font-weight: 600;
+    transition: background-color 0.18s ease;
+}
+
+button:hover {
+    background: var(--blue-pressed);
+}
+
+.mode-trigger {
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 10px 0 12px;
+}
+
+.mode-caret {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #334155;
+    flex: none;
+    transform-origin: 50% 45%;
+    transition: transform 0.12s ease;
+}
+
+.mode-select.is-open .mode-caret {
+    transform: rotate(180deg);
+}
+
+.mode-menu {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 6px 0;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #d0d9e5;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(30, 41, 59, 0.16);
+    z-index: 20;
+}
+
+.mode-menu li {
+    margin: 0;
+    padding: 0;
+}
+
+.mode-item {
+    width: 100%;
+    height: 34px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #1e293b;
+    font-weight: 600;
+    text-align: left;
+    padding: 0 12px 0 34px;
+    position: relative;
+}
+
+.mode-item::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 7px;
+    height: 13px;
+    border-right: 2px solid #64748b;
+    border-bottom: 2px solid #64748b;
+    transform: translateY(-60%) rotate(40deg);
+    opacity: 0;
+}
+
+.mode-item:hover {
+    background: #f1f5f9;
+}
+
+.mode-item.is-selected {
+    color: #0f172a;
+}
+
+.mode-item.is-selected::before {
+    opacity: 1;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(130px, 1fr));
+    gap: 8px;
+}
+
+.stat-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    padding: 8px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.stat-box strong {
+    font-size: 19px;
+    line-height: 1;
+    color: #1d4ed8;
+}
+
+.board-panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.board {
+    --cols: 8;
+    --cell-size: 36px;
+    --gap: 4px;
+    width: max-content;
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cell-size));
+    gap: var(--gap);
+}
+
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 1px solid var(--cell-line);
+    border-radius: 7px;
+    background: var(--blue-soft);
+    color: var(--text);
+    font-size: clamp(11px, calc(var(--cell-size) * 0.45), 18px);
+    font-weight: 700;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    padding: 0;
+    transition: background-color 0.12s ease;
+}
+
+.cell:hover {
+    background: var(--blue-pressed);
+}
+
+.cell.revealed {
+    background: #ffffff;
+    cursor: default;
+}
+
+.cell.mine {
+    background: var(--mine-bg);
+    color: #1e3a8a;
+}
+
+.cell.flagged {
+    color: #1d4ed8;
+}
+
+.cell.wrong-flag {
+    color: var(--danger);
+}
+
+.cell.n1 { color: #1e3a8a; }
+.cell.n2 { color: #166534; }
+.cell.n3 { color: #b91c1c; }
+.cell.n4 { color: #075985; }
+.cell.n5 { color: #78350f; }
+.cell.n6 { color: #0f766e; }
+.cell.n7 { color: #312e81; }
+.cell.n8 { color: #334155; }
+
+.message {
+    margin: 0 2px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.message.state-win {
+    color: #166534;
+    font-weight: 600;
+}
+
+.message.state-lose {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+@media (max-width: 760px) {
+    body {
+        padding: 6px;
+    }
+
+    .app-shell {
+        height: calc(100vh - 12px);
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    .top-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .stats {
+        grid-template-columns: 1fr;
+    }
+
+    .controls {
+        width: 100%;
+    }
+
+    .mode-select {
+        flex: 1;
+    }
+
+    .mode-trigger {
+        width: 100%;
+    }
+}
