@@ -1,0 +1,6 @@
+#include "resource.h"
+
+IDR_UI_INDEX_HTML RCDATA "..\\ui\\index.html"
+IDR_UI_STYLES_CSS RCDATA "..\\ui\\styles.css"
+IDR_UI_APP_JS RCDATA "..\\ui\\app.js"
+IDR_UI_ANIME_JS RCDATA "..\\ui\\vendor\\anime.min.js"

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cwctype>
-#include <filesystem>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -11,6 +10,7 @@
 #include <WebView2.h>
 
 #include "../saper logic/b.cpp"
+#include "resource.h"
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
@@ -18,7 +18,6 @@ using Microsoft::WRL::ComPtr;
 namespace {
 constexpr wchar_t kClassName[] = L"SaperMiniWindow";
 constexpr wchar_t kTitle[] = L"Saper";
-constexpr wchar_t kHost[] = L"saper.local";
 ComPtr<ICoreWebView2Controller> g_controller;
 ComPtr<ICoreWebView2> g_webview;
 
@@ -97,12 +96,6 @@ private:
 
 GameBridge g_game;
 
-std::wstring exeDir() {
-    wchar_t path[MAX_PATH] = {};
-    const DWORD len = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    return len ? std::filesystem::path(std::wstring(path, len)).parent_path().wstring() : L".";
-}
-
 std::wstring lower(std::wstring s) {
     std::transform(s.begin(), s.end(), s.begin(), [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
     return s;
@@ -141,6 +134,59 @@ std::wstring utf8ToWide(const std::string& s) {
     std::wstring w(static_cast<size_t>(len), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), len);
     return w;
+}
+
+std::string loadTextResource(int id) {
+    HRSRC resource = FindResourceW(nullptr, MAKEINTRESOURCEW(id), RT_RCDATA);
+    if (!resource) return {};
+    HGLOBAL loaded = LoadResource(nullptr, resource);
+    if (!loaded) return {};
+    const DWORD size = SizeofResource(nullptr, resource);
+    if (size == 0) return {};
+    const auto* data = reinterpret_cast<const char*>(LockResource(loaded));
+    if (!data) return {};
+    return std::string(data, data + size);
+}
+
+std::string replaceAll(std::string text, const std::string& from, const std::string& to) {
+    if (from.empty()) return text;
+    size_t pos = 0;
+    while ((pos = text.find(from, pos)) != std::string::npos) {
+        text.replace(pos, from.size(), to);
+        pos += to.size();
+    }
+    return text;
+}
+
+std::string inlineScriptSafe(std::string script) {
+    return replaceAll(std::move(script), "</script", "<\\/script");
+}
+
+std::string buildInlineHtml() {
+    std::string html = loadTextResource(IDR_UI_INDEX_HTML);
+    const std::string css = loadTextResource(IDR_UI_STYLES_CSS);
+    const std::string app = inlineScriptSafe(loadTextResource(IDR_UI_APP_JS));
+    const std::string anime = inlineScriptSafe(loadTextResource(IDR_UI_ANIME_JS));
+
+    if (html.empty() || css.empty() || app.empty() || anime.empty()) {
+        return "<!doctype html><html><body style='font-family:Segoe UI;padding:24px'>"
+               "<h2>UI resources missing</h2><p>Rebuild the application.</p></body></html>";
+    }
+
+    const std::string styleTag = "<style>\n" + css + "\n</style>\n";
+    const std::string scriptTags = "<script>\n" + anime + "\n</script>\n<script>\n" + app + "\n</script>\n";
+    html = replaceAll(std::move(html), "<link rel=\"stylesheet\" href=\"styles.css\">", styleTag);
+
+    const std::string externalScriptsLf = "<script src=\"vendor/anime.min.js\"></script>\n    <script src=\"app.js\"></script>";
+    const std::string externalScriptsCrlf = "<script src=\"vendor/anime.min.js\"></script>\r\n    <script src=\"app.js\"></script>";
+    if (html.find(externalScriptsLf) != std::string::npos) {
+        html = replaceAll(std::move(html), externalScriptsLf, scriptTags);
+    } else if (html.find(externalScriptsCrlf) != std::string::npos) {
+        html = replaceAll(std::move(html), externalScriptsCrlf, scriptTags);
+    } else {
+        html = replaceAll(std::move(html), "</body>", scriptTags + "</body>");
+    }
+    return html;
 }
 
 void postState() {
@@ -213,13 +259,8 @@ HRESULT initWebView(HWND hwnd) {
                                     }).Get(),
                                 &token);
 
-                            const auto uiPath = (std::filesystem::path(exeDir()) / "ui").wstring();
-                            ComPtr<ICoreWebView2_3> webview3;
-                            if (SUCCEEDED(g_webview.As(&webview3)) && webview3) {
-                                webview3->SetVirtualHostNameToFolderMapping(
-                                    kHost, uiPath.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
-                                g_webview->Navigate(L"https://saper.local/index.html");
-                            }
+                            const std::wstring html = utf8ToWide(buildInlineHtml());
+                            g_webview->NavigateToString(html.c_str());
                             return S_OK;
                         }).Get());
             }).Get());

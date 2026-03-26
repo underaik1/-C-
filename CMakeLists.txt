@@ -37,9 +37,11 @@ endif()
 
 add_executable(saper_webview WIN32
     src/main.cpp
+    src/ui_resources.rc
 )
 
 target_include_directories(saper_webview PRIVATE
+    src
     "${WEBVIEW2_INCLUDE_DIR}"
 )
 
@@ -53,9 +55,4 @@ target_link_libraries(saper_webview PRIVATE
     "${WEBVIEW2_LOADER_LIB}"
     user32
     ole32
-)
-
-add_custom_command(TARGET saper_webview POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:saper_webview>/ui"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/ui" "$<TARGET_FILE_DIR:saper_webview>/ui"
 )

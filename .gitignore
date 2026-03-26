@@ -3,3 +3,4 @@ build/
 out/
 .vs/
 *.vcxproj.user
+tmp_single_exe_test_*/
