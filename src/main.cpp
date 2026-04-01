@@ -23,20 +23,26 @@ ComPtr<ICoreWebView2> g_webview;
 
 class GameBridge : public MinesweeperCore {
 public:
+    // Создает мост между UI и ядром игры со стартовой простой сложностью.
     GameBridge() : MinesweeperCore(Difficulty::EASY) {}
 
+    // Меняет уровень сложности и полностью перезапускает поле.
     void setMode(Difficulty d) {
         mode_ = d;
         setDifficulty(d);
         initField();
     }
 
+    // Перезапускает текущую игру без смены сложности.
     void restart() { initField(); }
 
+    // Делегирует открытие клетки в игровое ядро.
     void reveal(int row, int col) { revealCell(row, col); }
 
+    // Делегирует установку/снятие флага в игровое ядро.
     void flag(int row, int col) { toggleFlag(row, col); }
 
+    // Сериализует текущее состояние игры в JSON для фронтенда.
     std::string toJson() const {
         std::ostringstream out;
         int flagsCount = 0;
@@ -79,12 +85,14 @@ public:
     }
 
 private:
+    // Возвращает строковое имя текущей сложности для JSON.
     const char* diffText() const {
         if (mode_ == Difficulty::MEDIUM) return "medium";
         if (mode_ == Difficulty::HARD) return "hard";
         return "easy";
     }
 
+    // Преобразует внутреннее состояние клетки в текстовый статус.
     static const char* stateText(CellState s) {
         if (s == CellState::REVEALED) return "revealed";
         if (s == CellState::FLAGGED) return "flagged";
@@ -96,11 +104,13 @@ private:
 
 GameBridge g_game;
 
+// Переводит строку в нижний регистр для устойчивого парсинга команд.
 std::wstring lower(std::wstring s) {
     std::transform(s.begin(), s.end(), s.begin(), [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
     return s;
 }
 
+// Делит строку по разделителю и возвращает все части.
 std::vector<std::wstring> split(const std::wstring& s, wchar_t delim) {
     std::vector<std::wstring> parts;
     size_t start = 0;
@@ -113,6 +123,7 @@ std::vector<std::wstring> split(const std::wstring& s, wchar_t delim) {
     return parts;
 }
 
+// Безопасно превращает строку в число, иначе отдает fallback.
 int toInt(const std::wstring& s, int fallback = -1) {
     try {
         size_t idx = 0;
@@ -121,6 +132,7 @@ int toInt(const std::wstring& s, int fallback = -1) {
     } catch (...) { return fallback; }
 }
 
+// Преобразует текст сложности из команды в enum.
 Difficulty parseDiff(const std::wstring& s) {
     const auto v = lower(s);
     if (v == L"medium") return Difficulty::MEDIUM;
@@ -128,6 +140,7 @@ Difficulty parseDiff(const std::wstring& s) {
     return Difficulty::EASY;
 }
 
+// Конвертирует UTF-8 строку в UTF-16 для WinAPI/WebView2.
 std::wstring utf8ToWide(const std::string& s) {
     if (s.empty()) return L"";
     const int len = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
@@ -136,6 +149,7 @@ std::wstring utf8ToWide(const std::string& s) {
     return w;
 }
 
+// Читает текстовый ресурс, встроенный в .exe по идентификатору.
 std::string loadTextResource(int id) {
     HRSRC resource = FindResourceW(nullptr, MAKEINTRESOURCEW(id), RT_RCDATA);
     if (!resource) return {};
@@ -148,6 +162,7 @@ std::string loadTextResource(int id) {
     return std::string(data, data + size);
 }
 
+// Заменяет все вхождения подстроки в тексте.
 std::string replaceAll(std::string text, const std::string& from, const std::string& to) {
     if (from.empty()) return text;
     size_t pos = 0;
@@ -158,10 +173,12 @@ std::string replaceAll(std::string text, const std::string& from, const std::str
     return text;
 }
 
+// Экранирует закрывающий </script> для безопасной встройки JS внутрь HTML.
 std::string inlineScriptSafe(std::string script) {
     return replaceAll(std::move(script), "</script", "<\\/script");
 }
 
+// Собирает итоговый HTML с инлайн-CSS/JS из ресурсов.
 std::string buildInlineHtml() {
     std::string html = loadTextResource(IDR_UI_INDEX_HTML);
     const std::string css = loadTextResource(IDR_UI_STYLES_CSS);
@@ -189,12 +206,14 @@ std::string buildInlineHtml() {
     return html;
 }
 
+// Отправляет текущее состояние игры в WebView как JSON-сообщение.
 void postState() {
     if (!g_webview) return;
     const std::wstring json = utf8ToWide(g_game.toJson());
     if (!json.empty()) g_webview->PostWebMessageAsJson(json.c_str());
 }
 
+// Обрабатывает команду от UI и применяет ее к игре.
 void onCommand(const std::wstring& raw) {
     const auto parts = split(raw, L'|');
     if (parts.empty()) { postState(); return; }
@@ -215,6 +234,7 @@ void onCommand(const std::wstring& raw) {
     postState();
 }
 
+// Подгоняет размеры WebView под клиентскую область окна.
 void resizeWebview(HWND hwnd) {
     if (!g_controller) return;
     RECT r = {};
@@ -222,6 +242,7 @@ void resizeWebview(HWND hwnd) {
     g_controller->put_Bounds(r);
 }
 
+// Инициализирует WebView2, подписывает обработчики и загружает UI.
 HRESULT initWebView(HWND hwnd) {
     return CreateCoreWebView2EnvironmentWithOptions(
         nullptr, nullptr, nullptr,
@@ -266,6 +287,7 @@ HRESULT initWebView(HWND hwnd) {
             }).Get());
 }
 
+// Оконная процедура WinAPI: маршрутизирует сообщения окна.
 LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_CREATE: initWebView(hwnd); return 0;
@@ -276,6 +298,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 }  // namespace
 
+// Точка входа приложения: COM, окно, цикл сообщений.
 int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
     if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) return -1;
 

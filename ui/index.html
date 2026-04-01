@@ -1,29 +1,34 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Сапер</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <main class="app-shell">
         <header class="top-panel">
             <div class="brand">
                 <h1>Сапер</h1>
-                <p>Минималистичный режим</p>
             </div>
             <div class="controls">
                 <label class="control" for="difficulty-trigger"><span>Сложность</span></label>
                 <div class="mode-select" id="mode-select">
-                    <button id="difficulty-trigger" class="mode-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <button id="difficulty-trigger" class="mode-trigger" type="button" aria-haspopup="listbox"
+                        aria-expanded="false">
                         <span id="difficulty-label">Простой</span>
                         <span class="mode-caret" aria-hidden="true"></span>
                     </button>
                     <ul id="difficulty-menu" class="mode-menu" role="listbox" hidden>
-                        <li><button type="button" class="mode-item is-selected" data-value="easy" aria-selected="true">Простой</button></li>
-                        <li><button type="button" class="mode-item" data-value="medium" aria-selected="false">Средний</button></li>
-                        <li><button type="button" class="mode-item" data-value="hard" aria-selected="false">Сложный</button></li>
+                        <li><button type="button" class="mode-item is-selected" data-value="easy"
+                                aria-selected="true">Простой</button></li>
+                        <li><button type="button" class="mode-item" data-value="medium"
+                                aria-selected="false">Средний</button></li>
+                        <li><button type="button" class="mode-item" data-value="hard"
+                                aria-selected="false">Сложный</button></li>
                     </ul>
                 </div>
                 <button id="restart" type="button">Новая игра</button>
@@ -55,4 +60,5 @@
     <script src="vendor/anime.min.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

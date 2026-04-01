@@ -16,11 +16,13 @@ let previousRevealed = [];
 let difficultyValue = "easy";
 const difficultyTexts = { easy: "Простой", medium: "Средний", hard: "Сложный" };
 
+// Отправляет команду в нативную часть через WebView2 bridge.
 function sendCommand(command, ...args) {
     if (!(window.chrome && window.chrome.webview)) return;
     window.chrome.webview.postMessage([command, ...args].join("|"));
 }
 
+// Синхронизирует выбранную сложность в интерфейсе.
 function setDifficultyUi(value) {
     difficultyValue = difficultyTexts[value] ? value : "easy";
     difficultyLabelElement.textContent = difficultyTexts[difficultyValue];
@@ -31,28 +33,33 @@ function setDifficultyUi(value) {
     });
 }
 
+// Открывает выпадающее меню выбора сложности.
 function openModeMenu() {
     modeSelectElement.classList.add("is-open");
     difficultyMenuElement.hidden = false;
     difficultyTriggerElement.setAttribute("aria-expanded", "true");
 }
 
+// Закрывает меню выбора сложности.
 function closeModeMenu() {
     modeSelectElement.classList.remove("is-open");
     difficultyMenuElement.hidden = true;
     difficultyTriggerElement.setAttribute("aria-expanded", "false");
 }
 
+// Переключает состояние меню сложности.
 function toggleModeMenu() {
     if (difficultyMenuElement.hidden) openModeMenu();
     else closeModeMenu();
 }
 
+// Формирует карту уже открытых клеток для анимации только новых открытий.
 function createRevealMap(rows, cols, sourceState) {
     return Array.from({ length: rows }, (_, row) =>
         Array.from({ length: cols }, (_, col) => sourceState.cells[row][col].state === "revealed"));
 }
 
+// Показывает текст статуса игры и подсвечивает тон сообщения.
 function setMessage(text, tone = "") {
     messageElement.textContent = text;
     messageElement.classList.remove("state-win", "state-lose");
@@ -60,6 +67,7 @@ function setMessage(text, tone = "") {
     if (tone === "lose") messageElement.classList.add("state-lose");
 }
 
+// Анимирует появление только что открытой клетки.
 function animateReveal(node) {
     if (window.anime) {
         window.anime({
@@ -72,12 +80,14 @@ function animateReveal(node) {
     }
 }
 
+// Возвращает текст, который должен отображаться в клетке.
 function getCellText(cell) {
     if (cell.state === "flagged") return "F";
     if (cell.state === "revealed" && cell.mine) return "*";
     return cell.state === "revealed" && cell.adjacent > 0 ? String(cell.adjacent) : "";
 }
 
+// Подбирает размер клеток под текущий размер панели, без скролла.
 function updateBoardScale() {
     if (!state) return;
     const gap = 4;
@@ -90,6 +100,7 @@ function updateBoardScale() {
     boardElement.style.setProperty("--gap", `${gap}px`);
 }
 
+// Полностью перерисовывает поле по актуальному состоянию из C++.
 function render(animateStart = false) {
     if (!state) return;
     boardElement.style.setProperty("--cols", state.cols);
@@ -146,6 +157,7 @@ function render(animateStart = false) {
     }
 }
 
+// Принимает новое состояние игры и запускает рендер.
 function receiveState(payload) {
     if (!payload || !payload.cells) return;
     const first = state === null;
@@ -154,9 +166,13 @@ function receiveState(payload) {
     render(first);
 }
 
+// Кнопка перезапуска текущей партии.
 restartButton.addEventListener("click", () => sendCommand("restart"));
+
+// Кнопка открытия/закрытия меню сложности.
 difficultyTriggerElement.addEventListener("click", () => toggleModeMenu());
 
+// Выбор конкретной сложности из выпадающего меню.
 difficultyItems.forEach((item) => {
     item.addEventListener("click", () => {
         setDifficultyUi(item.dataset.value);
@@ -165,20 +181,24 @@ difficultyItems.forEach((item) => {
     });
 });
 
+// Закрывает меню, если клик был вне блока выбора сложности.
 document.addEventListener("click", (event) => {
     if (!modeSelectElement.contains(event.target)) closeModeMenu();
 });
 
+// Закрывает меню по Esc.
 document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeModeMenu();
 });
 
+// Пересчитывает масштаб поля при изменении размера окна.
 window.addEventListener("resize", () => {
     updateBoardScale();
 });
 
 setDifficultyUi(difficultyValue);
 
+// Основной режим запуска: WebView2 доступен, слушаем сообщения из C++.
 if (window.chrome && window.chrome.webview) {
     window.chrome.webview.addEventListener("message", (event) => {
         let payload = event.data;
@@ -189,5 +209,6 @@ if (window.chrome && window.chrome.webview) {
     });
     sendCommand("init", difficultyValue);
 } else {
+    // Режим отладки в браузере: сообщаем, что нужен запуск через .exe.
     setMessage("Интерфейс нужно запускать через WebView2 приложение.");
 }

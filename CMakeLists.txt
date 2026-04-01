@@ -35,9 +35,21 @@ if(NOT EXISTS "${WEBVIEW2_LOADER_LIB}")
     message(FATAL_ERROR "WebView2 loader library was not found: ${WEBVIEW2_LOADER_LIB}")
 endif()
 
+set(UI_ASSETS
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/index.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/styles.css"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/app.js"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ui/vendor/anime.min.js"
+)
+
+# Keep UI files visible in IDE and force resource recompilation when they change.
+set_source_files_properties(${UI_ASSETS} PROPERTIES HEADER_FILE_ONLY ON)
+set_source_files_properties(src/ui_resources.rc PROPERTIES OBJECT_DEPENDS "${UI_ASSETS}")
+
 add_executable(saper_webview WIN32
     src/main.cpp
     src/ui_resources.rc
+    ${UI_ASSETS}
 )
 
 target_include_directories(saper_webview PRIVATE

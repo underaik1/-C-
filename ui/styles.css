@@ -279,14 +279,37 @@ button:hover {
     color: var(--danger);
 }
 
-.cell.n1 { color: #1e3a8a; }
-.cell.n2 { color: #166534; }
-.cell.n3 { color: #b91c1c; }
-.cell.n4 { color: #075985; }
-.cell.n5 { color: #78350f; }
-.cell.n6 { color: #0f766e; }
-.cell.n7 { color: #312e81; }
-.cell.n8 { color: #334155; }
+.cell.n1 {
+    color: #1e3a8a;
+}
+
+.cell.n2 {
+    color: #166534;
+}
+
+.cell.n3 {
+    color: #b91c1c;
+}
+
+.cell.n4 {
+    color: #075985;
+}
+
+.cell.n5 {
+    color: #78350f;
+}
+
+.cell.n6 {
+    color: #0f766e;
+}
+
+.cell.n7 {
+    color: #312e81;
+}
+
+.cell.n8 {
+    color: #334155;
+}
 
 .message {
     margin: 0 2px;

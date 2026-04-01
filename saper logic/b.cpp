@@ -1,13 +1,13 @@
 #include <vector>
 #include <random>
 
-//состояния ячеек: скрыта, открыта или под флагом
+// Состояния клетки: закрыта, открыта или помечена флагом.
 enum class CellState { HIDDEN, REVEALED, FLAGGED };
 
-//уровни сложности: меняют размер поля и количество мин
+// Уровни сложности определяют размер поля и число мин.
 enum class Difficulty { EASY, MEDIUM, HARD };
 
-//структура одной клетки поля
+// Данные одной клетки поля.
 struct Cell {
     bool hasMine = false;
     int adjacentMines = 0;
@@ -16,7 +16,7 @@ struct Cell {
 
 class MinesweeperCore {
 protected:
-    //параметры поля (меняются в зависимости от сложности)
+    // Параметры поля (зависят от выбранной сложности).
     int rows;
     int cols;
     int minesCount;
@@ -29,13 +29,13 @@ protected:
     std::vector<std::vector<Cell>> grid;
 
 public:
-    //конструктор с выбором сложности
+    // Создает игру с выбранной сложностью и пустым полем.
     MinesweeperCore(Difficulty level = Difficulty::EASY) {
         setDifficulty(level);
         initField();
     }
 
-    //настройка параметров поля по уровню сложности
+    // Применяет размеры поля и число мин для выбранного режима.
     void setDifficulty(Difficulty level) {
         switch (level) {
             case Difficulty::EASY:   rows = 8;  cols = 8;  minesCount = 10; break;
@@ -44,7 +44,7 @@ public:
         }
     }
 
-    //инициализация или сброс поля
+    // Полный сброс игрового состояния перед новой партией.
     void initField() {
         grid.assign(rows, std::vector<Cell>(cols));
         revealedCellsCount = 0;
@@ -53,7 +53,7 @@ public:
         isFirstMove = true;
     }
 
-    //расстановка мин в случайные ячейки
+    // Случайно расставляет мины по свободным клеткам.
     void placeMines() {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -71,13 +71,13 @@ public:
         }
     }
 
-    //подсчет мин вокруг каждой клетки(окно 3х3)
+    // Считает количество мин вокруг каждой безопасной клетки.
     void calculateAdjacentMines() {
         for (int r = 0; r < rows; ++r) {
             for (int c = 0; c < cols; ++c) {
                 if (grid[r][c].hasMine) continue;
                 int count = 0;
-                //проверка соседей с защитой границ поля
+                // Проверяем соседей в окне 3x3 с учетом границ поля.
                 for (int i = -1; i <= 1; ++i) {
                     for (int j = -1; j <= 1; ++j) {
                         int nr = r + i, nc = c + j;
@@ -91,13 +91,13 @@ public:
         }
     }
 
-    //рсновная логика: открытие клетки при нажатии
+    // Открывает клетку, обрабатывает поражение/победу и автодорисовку пустот.
     void revealCell(int r, int c) {
-        //проверка границ и состояния ячейки
+        // Игнорируем выход за границы, завершенную игру и уже открытую клетку.
         if (r < 0 || r >= rows || c < 0 || c >= cols) return;
         if (isGameOver || isGameWon || grid[r][c].state != CellState::HIDDEN) return;
 
-        //расставляем мины только при первом ходе, чтобы не проиграть сразу
+        // Мины ставим только на первом ходе.
         if (isFirstMove) {
             placeMines();
             calculateAdjacentMines();
@@ -106,7 +106,7 @@ public:
 
         grid[r][c].state = CellState::REVEALED;
 
-        //попал на мину — проигрыш
+        // Открыли мину: игра окончена.
         if (grid[r][c].hasMine) {
             isGameOver = true;
             return;
@@ -114,7 +114,7 @@ public:
 
         revealedCellsCount++;
 
-        //автооткрытие соседей, если рядом 0 мин
+        // Если рядом нет мин, рекурсивно открываем соседние клетки.
         if (grid[r][c].adjacentMines == 0) {
             for (int i = -1; i <= 1; ++i) {
                 for (int j = -1; j <= 1; ++j) {
@@ -123,23 +123,31 @@ public:
             }
         }
 
-        //проверка на победу
+        // Победа: открыты все клетки, кроме мин.
         if (revealedCellsCount == (rows * cols) - minesCount) {
             isGameWon = true;
         }
     }
 
-    // поставить или снять флаг
+    // Ставит или снимает флаг на закрытой клетке.
     void toggleFlag(int r, int c) {
         if (r < 0 || r >= rows || c < 0 || c >= cols || isGameOver || isGameWon) return;
         if (grid[r][c].state == CellState::REVEALED) return;
         grid[r][c].state = (grid[r][c].state == CellState::FLAGGED) ? CellState::HIDDEN : CellState::FLAGGED;
     }
 
-    // геттеры для отображения в интерфейсе
+    // Возвращает состояние конкретной клетки.
     const Cell& getCell(int r, int c) const { return grid[r][c]; }
+
+    // Возвращает флаг проигрыша.
     bool getIsGameOver() const { return isGameOver; }
+
+    // Возвращает флаг победы.
     bool getIsGameWon() const { return isGameWon; }
+
+    // Возвращает количество строк поля.
     int getRows() const { return rows; }
+
+    // Возвращает количество столбцов поля.
     int getCols() const { return cols; }
 };

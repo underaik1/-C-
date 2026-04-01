@@ -1,6 +1,36 @@
 saper logic/main.cpp
+
+# Build directories
 build/
+build_*/
+cmake-build-*/
 out/
+tmp_single_exe_test_*/
+
+# CMake/Ninja generated files (if emitted at repo root)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build.ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+
+# Visual Studio
 .vs/
 *.vcxproj.user
-tmp_single_exe_test_*/
+*.VC.db
+*.VC.opendb
+
+# Native build artifacts
+*.obj
+*.ilk
+*.pdb
+*.idb
+*.exp
+*.lib
+*.dll
+*.exe
+
+# WebView2 user data created near exe
+*.WebView2/
