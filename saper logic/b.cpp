@@ -1,5 +1,7 @@
 #include <vector>
 #include <random>
+#include <chrono>
+#include <string>
 
 //состояния ячеек: скрыта, открыта или под флагом
 enum class CellState { HIDDEN, REVEALED, FLAGGED };
@@ -28,15 +30,26 @@ protected:
 
     std::vector<std::vector<Cell>> grid;
 
+    //переменные для времени и рекордов
+    Difficulty currentLevel; 
+    int bestTimes[3]; // массив для хранения лучших результатов (в секундах)
+    std::chrono::steady_clock::time_point startTime; //т очка отсчета времени
+
 public:
     //конструктор с выбором сложности
     MinesweeperCore(Difficulty level = Difficulty::EASY) {
+        // Заполняем рекорды маркерами "пусто" (-1)
+        bestTimes[0] = -1;
+        bestTimes[1] = -1;
+        bestTimes[2] = -1;
+        
         setDifficulty(level);
         initField();
     }
 
     //настройка параметров поля по уровню сложности
     void setDifficulty(Difficulty level) {
+        currentLevel = level; // Запоминаем текущую сложность для таблицы
         switch (level) {
             case Difficulty::EASY:   rows = 8;  cols = 8;  minesCount = 10; break;
             case Difficulty::MEDIUM: rows = 12; cols = 12; minesCount = 25; break;
@@ -53,8 +66,8 @@ public:
         isFirstMove = true;
     }
 
-    //расстановка мин в случайные ячейки
-    void placeMines() {
+    //расстановка мин (с защитой первого клика)
+    void placeMines(int startR, int startC) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> disR(0, rows - 1);
@@ -64,7 +77,9 @@ public:
         while (placedMines < minesCount) {
             int r = disR(gen);
             int c = disC(gen);
-            if (!grid[r][c].hasMine) {
+            
+            //если мины тут нет и это не та клетка, куда мы нажали в первый раз
+            if (!grid[r][c].hasMine && (r != startR || c != startC)) {
                 grid[r][c].hasMine = true;
                 placedMines++;
             }
@@ -91,17 +106,18 @@ public:
         }
     }
 
-    //рсновная логика: открытие клетки при нажатии
+    //основная логика: открытие клетки при нажатии
     void revealCell(int r, int c) {
         //проверка границ и состояния ячейки
         if (r < 0 || r >= rows || c < 0 || c >= cols) return;
         if (isGameOver || isGameWon || grid[r][c].state != CellState::HIDDEN) return;
 
-        //расставляем мины только при первом ходе, чтобы не проиграть сразу
+        //расставляем мины только при первом ходе
         if (isFirstMove) {
-            placeMines();
+            placeMines(r, c); //передаем координаты клика, чтобы туда не попала мина
             calculateAdjacentMines();
             isFirstMove = false;
+            startTime = std::chrono::steady_clock::now(); // запускаем таймер
         }
 
         grid[r][c].state = CellState::REVEALED;
@@ -126,6 +142,17 @@ public:
         //проверка на победу
         if (revealedCellsCount == (rows * cols) - minesCount) {
             isGameWon = true;
+            
+            //считаем время
+            auto endTime = std::chrono::steady_clock::now();
+            int totalSeconds = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime).count();
+            
+            int diffIndex = static_cast<int>(currentLevel);
+            
+            //если рекорда еще нет или мы побили старый
+            if (bestTimes[diffIndex] == -1 || totalSeconds < bestTimes[diffIndex]) {
+                bestTimes[diffIndex] = totalSeconds;
+            }
         }
     }
 
@@ -134,6 +161,28 @@ public:
         if (r < 0 || r >= rows || c < 0 || c >= cols || isGameOver || isGameWon) return;
         if (grid[r][c].state == CellState::REVEALED) return;
         grid[r][c].state = (grid[r][c].state == CellState::FLAGGED) ? CellState::HIDDEN : CellState::FLAGGED;
+    }
+
+    //форматирование времени и вывод таблицы
+
+    std::string formatTime(int totalSeconds) const {
+        if (totalSeconds == -1) return "--:--"; 
+        
+        int mins = totalSeconds / 60;
+        int secs = totalSeconds % 60;
+        
+        std::string timeStr = std::to_string(mins) + ":";
+        if (secs < 10) timeStr += "0"; 
+        timeStr += std::to_string(secs);
+        
+        return timeStr;
+    }
+
+    //готовый текст для отображения рекордов
+    std::string getHighScoreTable() const {
+        return "Лучшее время прохождения на уровне easy: " + formatTime(bestTimes[0]) + "\n" +
+               "Лучшее время прохождения на уровне medium: " + formatTime(bestTimes[1]) + "\n" +
+               "Лучшее время прохождения на уровне hard: " + formatTime(bestTimes[2]);
     }
 
     // геттеры для отображения в интерфейсе
