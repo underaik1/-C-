@@ -10,6 +10,11 @@ const difficultyLabelElement = document.getElementById("difficulty-label");
 const difficultyMenuElement = document.getElementById("difficulty-menu");
 const difficultyItems = Array.from(document.querySelectorAll(".mode-item"));
 const restartButton = document.getElementById("restart");
+const recordElements = {
+    easy: document.getElementById("record-easy"),
+    medium: document.getElementById("record-medium"),
+    hard: document.getElementById("record-hard")
+};
 
 let state = null;
 let previousRevealed = [];
@@ -60,6 +65,16 @@ function setMessage(text, tone = "") {
     if (tone === "lose") messageElement.classList.add("state-lose");
 }
 
+function updateRecords(highScores = []) {
+    highScores.forEach((record) => {
+        const target = recordElements[record.difficulty];
+        if (!target) return;
+        const hasRecord = record.seconds >= 0;
+        target.textContent = hasRecord ? record.time : "Нет";
+        target.closest(".record-item")?.classList.toggle("is-empty", !hasRecord);
+    });
+}
+
 function animateReveal(node) {
     if (window.anime) {
         window.anime({
@@ -73,8 +88,8 @@ function animateReveal(node) {
 }
 
 function getCellText(cell) {
-    if (cell.state === "flagged") return "F";
-    if (cell.state === "revealed" && cell.mine) return "*";
+    if (cell.state === "flagged") return "⚑";
+    if (cell.state === "revealed" && cell.mine) return "✹";
     return cell.state === "revealed" && cell.adjacent > 0 ? String(cell.adjacent) : "";
 }
 
@@ -107,6 +122,7 @@ function render(animateStart = false) {
             if (cell.mine && cell.state === "revealed") button.classList.add("mine");
             if (cell.wrongFlag) button.classList.add("wrong-flag");
             if (cell.state === "revealed" && cell.adjacent > 0) button.classList.add(`n${cell.adjacent}`);
+            if (cell.state === "flagged" || (cell.state === "revealed" && cell.mine)) button.classList.add("has-icon");
             button.textContent = getCellText(cell);
             button.addEventListener("click", () => sendCommand("reveal", String(row), String(col)));
             button.addEventListener("contextmenu", (event) => {
@@ -132,15 +148,18 @@ function render(animateStart = false) {
     }
 
     previousRevealed = createRevealMap(state.rows, state.cols, state);
-    minesLeftElement.textContent = String(state.minesCount - state.flagsCount);
+    minesLeftElement.textContent = String(state.minesLeft ?? (state.minesCount - state.flagsCount));
     flagsCountElement.textContent = String(state.flagsCount);
     boardSizeElement.textContent = `${state.rows}x${state.cols}`;
     setDifficultyUi(state.difficulty || difficultyValue);
+    updateRecords(state.highScores);
 
     if (state.gameWon) {
-        setMessage("Победа. Все безопасные клетки открыты.", "win");
+        setMessage("Победа. Все мины найдены.", "win");
     } else if (state.gameOver) {
         setMessage("Поражение. Попали на мину.", "lose");
+    } else if (state.wrongFlags > 0) {
+        setMessage(`Неверных флагов: ${state.wrongFlags}. Сними лишние флаги и проверь клетки рядом с числами.`);
     } else {
         setMessage("ЛКМ: открыть клетку, ПКМ: поставить флаг.");
     }

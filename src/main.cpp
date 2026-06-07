@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -12,7 +13,6 @@
 #include "../saper logic/b.cpp"
 #include "resource.h"
 
-using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
 namespace {
@@ -23,7 +23,9 @@ ComPtr<ICoreWebView2> g_webview;
 
 class GameBridge : public MinesweeperCore {
 public:
-    GameBridge() : MinesweeperCore(Difficulty::EASY) {}
+    GameBridge() : MinesweeperCore(Difficulty::EASY) {
+        loadRecords();
+    }
 
     void setMode(Difficulty d) {
         mode_ = d;
@@ -33,27 +35,42 @@ public:
 
     void restart() { initField(); }
 
-    void reveal(int row, int col) { revealCell(row, col); }
+    void reveal(int row, int col) {
+        revealCell(row, col);
+        if (isGameWon) saveRecords();
+    }
 
-    void flag(int row, int col) { toggleFlag(row, col); }
+    void flag(int row, int col) {
+        if (row < 0 || row >= rows || col < 0 || col >= cols || isGameOver || isGameWon) return;
+        if (grid[row][col].state == CellState::REVEALED) return;
+        if (grid[row][col].state == CellState::HIDDEN && countFlags() >= minesCount) return;
+        toggleFlag(row, col);
+        finishWinIfAllMinesFlagged();
+    }
 
     std::string toJson() const {
         std::ostringstream out;
-        int flagsCount = 0;
-        for (int r = 0; r < rows; ++r) {
-            for (int c = 0; c < cols; ++c) {
-                if (grid[r][c].state == CellState::FLAGGED) ++flagsCount;
-            }
-        }
+        const int flagsCount = countFlags();
+        const int correctFlags = countCorrectFlags();
+        const int wrongFlags = isFirstMove ? 0 : flagsCount - correctFlags;
+        const int minesLeft = isFirstMove ? minesCount : minesCount - correctFlags;
 
         out << '{'
             << "\"rows\":" << rows << ','
             << "\"cols\":" << cols << ','
             << "\"minesCount\":" << minesCount << ','
             << "\"flagsCount\":" << flagsCount << ','
+            << "\"correctFlags\":" << correctFlags << ','
+            << "\"wrongFlags\":" << wrongFlags << ','
+            << "\"minesLeft\":" << minesLeft << ','
             << "\"gameOver\":" << (isGameOver ? "true" : "false") << ','
             << "\"gameWon\":" << (isGameWon ? "true" : "false") << ','
             << "\"difficulty\":\"" << diffText() << "\","
+            << "\"highScores\":["
+            << "{\"difficulty\":\"easy\",\"time\":\"" << formatTime(bestTimes[0]) << "\",\"seconds\":" << bestTimes[0] << "},"
+            << "{\"difficulty\":\"medium\",\"time\":\"" << formatTime(bestTimes[1]) << "\",\"seconds\":" << bestTimes[1] << "},"
+            << "{\"difficulty\":\"hard\",\"time\":\"" << formatTime(bestTimes[2]) << "\",\"seconds\":" << bestTimes[2] << "}"
+            << "],"
             << "\"cells\":[";
 
         for (int r = 0; r < rows; ++r) {
@@ -79,6 +96,59 @@ public:
     }
 
 private:
+    int countFlags() const {
+        int total = 0;
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                if (grid[r][c].state == CellState::FLAGGED) ++total;
+            }
+        }
+        return total;
+    }
+
+    int countCorrectFlags() const {
+        if (isFirstMove) return 0;
+        int total = 0;
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                if (grid[r][c].state == CellState::FLAGGED && grid[r][c].hasMine) ++total;
+            }
+        }
+        return total;
+    }
+
+    void finishWinIfAllMinesFlagged() {
+        if (isFirstMove || isGameOver || isGameWon) return;
+        if (countFlags() != minesCount || countCorrectFlags() != minesCount) return;
+
+        isGameWon = true;
+        const auto endTime = std::chrono::steady_clock::now();
+        const int totalSeconds = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime).count();
+        const int diffIndex = static_cast<int>(currentLevel);
+        if (bestTimes[diffIndex] == -1 || totalSeconds < bestTimes[diffIndex]) {
+            bestTimes[diffIndex] = totalSeconds;
+        }
+        saveRecords();
+    }
+
+    void loadRecords() {
+        std::ifstream in("saper_records.txt");
+        int easy = -1;
+        int medium = -1;
+        int hard = -1;
+        if (in >> easy >> medium >> hard) {
+            bestTimes[0] = easy >= 0 ? easy : -1;
+            bestTimes[1] = medium >= 0 ? medium : -1;
+            bestTimes[2] = hard >= 0 ? hard : -1;
+        }
+    }
+
+    void saveRecords() const {
+        std::ofstream out("saper_records.txt", std::ios::trunc);
+        if (!out) return;
+        out << bestTimes[0] << ' ' << bestTimes[1] << ' ' << bestTimes[2];
+    }
+
     const char* diffText() const {
         if (mode_ == Difficulty::MEDIUM) return "medium";
         if (mode_ == Difficulty::HARD) return "hard";
@@ -209,7 +279,7 @@ void onCommand(const std::wstring& raw) {
     } else if (cmd == L"reveal" && parts.size() > 2) {
         g_game.reveal(toInt(parts[1]), toInt(parts[2]));
     } else if (cmd == L"flag" && parts.size() > 2) {
-        g_game.toggleFlag(toInt(parts[1]), toInt(parts[2]));
+        g_game.flag(toInt(parts[1]), toInt(parts[2]));
     }
 
     postState();
@@ -222,48 +292,141 @@ void resizeWebview(HWND hwnd) {
     g_controller->put_Bounds(r);
 }
 
+class WebMessageReceivedHandler final : public ICoreWebView2WebMessageReceivedEventHandler {
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** obj) override {
+        if (!obj) return E_POINTER;
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2WebMessageReceivedEventHandler) {
+            *obj = static_cast<ICoreWebView2WebMessageReceivedEventHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *obj = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refCount_)); }
+
+    ULONG STDMETHODCALLTYPE Release() override {
+        const ULONG count = static_cast<ULONG>(InterlockedDecrement(&refCount_));
+        if (!count) delete this;
+        return count;
+    }
+
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) override {
+        LPWSTR raw = nullptr;
+        if (SUCCEEDED(args->TryGetWebMessageAsString(&raw)) && raw) {
+            onCommand(raw);
+            CoTaskMemFree(raw);
+        } else {
+            postState();
+        }
+        return S_OK;
+    }
+
+private:
+    LONG refCount_ = 1;
+};
+
+class ControllerCompletedHandler final : public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler {
+public:
+    explicit ControllerCompletedHandler(HWND hwnd) : hwnd_(hwnd) {}
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** obj) override {
+        if (!obj) return E_POINTER;
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2CreateCoreWebView2ControllerCompletedHandler) {
+            *obj = static_cast<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *obj = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refCount_)); }
+
+    ULONG STDMETHODCALLTYPE Release() override {
+        const ULONG count = static_cast<ULONG>(InterlockedDecrement(&refCount_));
+        if (!count) delete this;
+        return count;
+    }
+
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT hr, ICoreWebView2Controller* ctrl) override {
+        if (FAILED(hr) || !ctrl) return E_FAIL;
+        g_controller = ctrl;
+        g_controller->get_CoreWebView2(&g_webview);
+        resizeWebview(hwnd_);
+
+        ComPtr<ICoreWebView2Settings> settings;
+        if (SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
+            settings->put_AreDefaultContextMenusEnabled(FALSE);
+            settings->put_IsStatusBarEnabled(FALSE);
+            settings->put_IsZoomControlEnabled(FALSE);
+        }
+
+        EventRegistrationToken token{};
+        g_webview->add_WebMessageReceived(new WebMessageReceivedHandler(), &token);
+
+        const std::wstring html = utf8ToWide(buildInlineHtml());
+        g_webview->NavigateToString(html.c_str());
+        return S_OK;
+    }
+
+private:
+    LONG refCount_ = 1;
+    HWND hwnd_ = nullptr;
+};
+
+class EnvironmentCompletedHandler final : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler {
+public:
+    explicit EnvironmentCompletedHandler(HWND hwnd) : hwnd_(hwnd) {}
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** obj) override {
+        if (!obj) return E_POINTER;
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler) {
+            *obj = static_cast<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *obj = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refCount_)); }
+
+    ULONG STDMETHODCALLTYPE Release() override {
+        const ULONG count = static_cast<ULONG>(InterlockedDecrement(&refCount_));
+        if (!count) delete this;
+        return count;
+    }
+
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT hr, ICoreWebView2Environment* env) override {
+        if (FAILED(hr) || !env) return E_FAIL;
+        return env->CreateCoreWebView2Controller(hwnd_, new ControllerCompletedHandler(hwnd_));
+    }
+
+private:
+    LONG refCount_ = 1;
+    HWND hwnd_ = nullptr;
+};
+
 HRESULT initWebView(HWND hwnd) {
-    return CreateCoreWebView2EnvironmentWithOptions(
+    using CreateEnvironmentWithOptionsFn = HRESULT(STDAPICALLTYPE*)(
+        PCWSTR,
+        PCWSTR,
+        ICoreWebView2EnvironmentOptions*,
+        ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler*);
+
+    HMODULE loader = LoadLibraryW(L"WebView2Loader.dll");
+    if (!loader) return HRESULT_FROM_WIN32(GetLastError());
+
+    const auto createEnvironment = reinterpret_cast<CreateEnvironmentWithOptionsFn>(
+        GetProcAddress(loader, "CreateCoreWebView2EnvironmentWithOptions"));
+    if (!createEnvironment) return HRESULT_FROM_WIN32(GetLastError());
+
+    return createEnvironment(
         nullptr, nullptr, nullptr,
-        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-            [hwnd](HRESULT hr, ICoreWebView2Environment* env) -> HRESULT {
-                if (FAILED(hr) || !env) return E_FAIL;
-                return env->CreateCoreWebView2Controller(
-                    hwnd,
-                    Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                        [hwnd](HRESULT hr2, ICoreWebView2Controller* ctrl) -> HRESULT {
-                            if (FAILED(hr2) || !ctrl) return E_FAIL;
-                            g_controller = ctrl;
-                            g_controller->get_CoreWebView2(&g_webview);
-                            resizeWebview(hwnd);
-
-                            ComPtr<ICoreWebView2Settings> settings;
-                            if (SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
-                                settings->put_AreDefaultContextMenusEnabled(FALSE);
-                                settings->put_IsStatusBarEnabled(FALSE);
-                                settings->put_IsZoomControlEnabled(FALSE);
-                            }
-
-                            EventRegistrationToken token{};
-                            g_webview->add_WebMessageReceived(
-                                Callback<ICoreWebView2WebMessageReceivedEventHandler>(
-                                    [](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
-                                        LPWSTR raw = nullptr;
-                                        if (SUCCEEDED(args->TryGetWebMessageAsString(&raw)) && raw) {
-                                            onCommand(raw);
-                                            CoTaskMemFree(raw);
-                                        } else {
-                                            postState();
-                                        }
-                                        return S_OK;
-                                    }).Get(),
-                                &token);
-
-                            const std::wstring html = utf8ToWide(buildInlineHtml());
-                            g_webview->NavigateToString(html.c_str());
-                            return S_OK;
-                        }).Get());
-            }).Get());
+        new EnvironmentCompletedHandler(hwnd));
 }
 
 LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {

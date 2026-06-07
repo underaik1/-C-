@@ -44,7 +44,7 @@ body {
     padding: 14px;
     box-shadow: 0 10px 28px rgba(31, 42, 55, 0.08);
     display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto auto auto 1fr auto;
     gap: 10px;
 }
 
@@ -218,6 +218,56 @@ button:hover {
     color: #1d4ed8;
 }
 
+.records {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fbfdff;
+    padding: 8px 11px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px;
+}
+
+.records-title {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.records-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(110px, 1fr));
+    gap: 8px;
+}
+
+.record-item {
+    border-left: 1px solid var(--border);
+    padding-left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.record-item span {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.record-item strong {
+    color: #166534;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.record-item.is-empty strong {
+    color: var(--muted);
+    font-weight: 600;
+}
+
 .board-panel {
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -257,6 +307,11 @@ button:hover {
     transition: background-color 0.12s ease;
 }
 
+.cell.has-icon {
+    font-size: clamp(15px, calc(var(--cell-size) * 0.58), 24px);
+    line-height: 1;
+}
+
 .cell:hover {
     background: var(--blue-pressed);
 }
@@ -267,12 +322,12 @@ button:hover {
 }
 
 .cell.mine {
-    background: var(--mine-bg);
-    color: #1e3a8a;
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .cell.flagged {
-    color: #1d4ed8;
+    color: #dc2626;
 }
 
 .cell.wrong-flag {
@@ -322,6 +377,20 @@ button:hover {
 
     .stats {
         grid-template-columns: 1fr;
+    }
+
+    .records {
+        grid-template-columns: 1fr;
+    }
+
+    .records-list {
+        grid-template-columns: 1fr;
+    }
+
+    .record-item {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        padding: 7px 0 0;
     }
 
     .controls {
